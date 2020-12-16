@@ -66,7 +66,7 @@ public class OrdersServlet extends HttpServlet {
         while((line=reader.readLine())!=null){
             json+=line;
         }
-        System.out.println(json);
+
         OrderInformation orderInformation = jsonb.fromJson(json, OrderInformation.class);
 
         BasicDataSource cp = (BasicDataSource) getServletContext().getAttribute("cp");
@@ -88,19 +88,27 @@ public class OrdersServlet extends HttpServlet {
                     pstm.setObject(3, orderItems.get(i).getQty());
                     pstm.setObject(4, orderItems.get(i).getUnitPrice());
 
-                    pstm.executeUpdate();
-
+                    if(pstm.executeUpdate()>0){
+                        pstm=connection.prepareStatement("UPDATE Item SET qtyOnHand=qtyOnHand-? WHERE code=?");
+                        pstm.setObject(1,orderItems.get(i).getQty());
+                        pstm.setObject(2,orderItems.get(i).getItemCode());
+                        if(pstm.executeUpdate()>0){
+                            continue;
+                        }else{
+                            resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                            return;
+                        }
+                    }else{
+                        resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                        return;
+                    }
                 }
-
                 resp.setStatus(HttpServletResponse.SC_CREATED);
-
-
-
             }else{
                 resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             }
 
-
+//            connection.setAutoCommit(true);
 
         } catch (SQLException throwables) {
             resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
